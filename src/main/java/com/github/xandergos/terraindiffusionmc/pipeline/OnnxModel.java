@@ -7,7 +7,6 @@ import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,16 +39,13 @@ public final class OnnxModel implements AutoCloseable {
     private OrtSession cpuSession;    // non-null in CPU-only mode
     private OrtSession gpuSession;    // non-null when offload_models=false
 
-    public OnnxModel(String resourcePath, String name) {
+    public OnnxModel(Path modelFilePath, String name) {
         this.name = name;
         try {
             long start = System.currentTimeMillis();
             this.env = OrtEnvironment.getEnvironment(OrtLoggingLevel.ORT_LOGGING_LEVEL_ERROR);
-            try (InputStream is = OnnxModel.class.getResourceAsStream(resourcePath)) {
-                if (is == null) throw new RuntimeException("Model not found: " + resourcePath);
-                byte[] sourceModelBytes = is.readAllBytes();
-                this.optimizedModelBytes = optimizeModelAtRuntime(sourceModelBytes);
-            }
+            byte[] sourceModelBytes = Files.readAllBytes(modelFilePath);
+            this.optimizedModelBytes = optimizeModelAtRuntime(sourceModelBytes);
             if ("cpu".equals(TerrainDiffusionConfig.inferenceDevice())) {
                 OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
                 opts.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
@@ -72,7 +68,7 @@ public final class OnnxModel implements AutoCloseable {
                         name, optimizedModelBytes.length / 1024, System.currentTimeMillis() - start);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load ONNX model: " + resourcePath, e);
+            throw new RuntimeException("Failed to load ONNX model: " + modelFilePath, e);
         }
     }
 
