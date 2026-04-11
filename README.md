@@ -44,9 +44,11 @@ Find your cuDNN folder. It should look something like this:
 
 You may need to restart your PC for PATH changes to take effect. Once you're back, you're all set.
 
-## Creating a World
+## Usage
 
-When creating a world, select the **Terrain Diffusion** world type. Click **Customize** to set the `World Scale` (see [Per-world settings](#per-world-settings) below).
+1. Download the mod jar for your Minecraft version and place it in your Minecraft `mods/` folder. Make sure the Minecraft version matches.
+2. Launch Minecraft, at least once online to download the models (~2.5GB).
+3. Create a world, and select the **Terrain Diffusion** world type. Click **Customize** to set the `World Scale` (see [Per-world settings](#per-world-settings) below).
 
 ## Exploring the World
 
