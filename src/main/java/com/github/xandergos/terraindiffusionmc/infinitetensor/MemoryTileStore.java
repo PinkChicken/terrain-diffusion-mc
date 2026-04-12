@@ -1,6 +1,7 @@
 package com.github.xandergos.terraindiffusionmc.infinitetensor;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * In-memory factory and LRU cache for {@link InfiniteTensor} window outputs.
@@ -19,6 +20,8 @@ public class MemoryTileStore {
 
     /** All registered tensor instances, by id. */
     private final Map<String, InfiniteTensor> tensors = new HashMap<>();
+    /** Monotonic count of newly computed/cached windows across all tensors. */
+    private final AtomicLong totalComputedWindowCount = new AtomicLong(0L);
 
     // -------------------------------------------------------------------------
     // Factory
@@ -102,6 +105,12 @@ public class MemoryTileStore {
 
         cache.put(key, output);
         size[0] += output.byteSize();
+        totalComputedWindowCount.incrementAndGet();
+    }
+
+    /** Returns how many windows have been newly computed and cached. */
+    public long getTotalComputedWindowCount() {
+        return totalComputedWindowCount.get();
     }
 
     void evictIfNeeded(String id, long limitBytes) {

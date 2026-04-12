@@ -2,6 +2,8 @@ package com.github.xandergos.terraindiffusionmc.pipeline;
 
 import com.github.xandergos.terraindiffusionmc.infinitetensor.FloatTensor;
 import com.github.xandergos.terraindiffusionmc.world.WorldScaleManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -22,6 +24,7 @@ import java.util.concurrent.FutureTask;
  * bilinearly upsampled, giving 1 block = nativeResolution/scale.
  */
 public final class LocalTerrainProvider {
+    private static final Logger LOG = LoggerFactory.getLogger(LocalTerrainProvider.class);
 
     private static final float NATIVE_RESOLUTION = WorldPipelineModelConfig.nativeResolution();
 
@@ -176,9 +179,20 @@ public final class LocalTerrainProvider {
 
         int scale = WorldScaleManager.getCurrentScale();
         FutureTask<HeightmapData> task = new FutureTask<>(() -> {
+            long computedWindowCountBefore = pipeline.getTotalComputedWindowCount();
             HeightmapData data = scale <= 1
                     ? handle1x(i1, j1, i2, j2)
                     : handleUpsampled(i1, j1, i2, j2, scale);
+            long computedWindowCountAfter = pipeline.getTotalComputedWindowCount();
+
+            long newlyComputedWindowCount = computedWindowCountAfter - computedWindowCountBefore;
+            if (newlyComputedWindowCount > 0) {
+                int regionWidth = j2 - j1;
+                int regionHeight = i2 - i1;
+                LOG.info(
+                        "Terrain Diffusion finished generating region {}x{} ({} newly computed windows)",
+                        regionWidth, regionHeight, newlyComputedWindowCount);
+            }
             synchronized (CACHE_LOCK) {
                 CACHE.put(key, data);
                 evictLruTo(MAX_CACHE_SIZE);
@@ -188,7 +202,14 @@ public final class LocalTerrainProvider {
         });
         Future<HeightmapData> existing = PENDING.putIfAbsent(key, task);
         FutureTask<HeightmapData> toRun = (existing == null) ? task : (FutureTask<HeightmapData>) existing;
-        if (existing == null) INFERENCE_EXECUTOR.submit(toRun);
+        if (existing == null) {
+            int regionWidth = j2 - j1;
+            int regionHeight = i2 - i1;
+            LOG.info(
+                    "Terrain Diffusion uncached region requested: ({}, {})-({}, {}) size {}x{}",
+                    j1, i1, j2, i2, regionWidth, regionHeight);
+            INFERENCE_EXECUTOR.submit(toRun);
+        }
         try {
             return toRun.get();
         } catch (Exception e) {

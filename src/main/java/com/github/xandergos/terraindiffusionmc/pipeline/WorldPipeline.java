@@ -178,7 +178,7 @@ public final class WorldPipeline implements AutoCloseable {
         long[][] condShapes  = new long[5][1];
         for (int ci = 0; ci < 5; ci++) { condInputs[ci] = new float[]{COND_VALS[ci]}; condShapes[ci] = new long[]{1}; }
 
-        LOG.info("Coarse model called for chunk ({}, {}) tile pixels [{}, {}]-[{}, {}] (20 steps)", i, j, i1, j1, i1 + S, j1 + S);
+        LOG.debug("Coarse model called for chunk ({}, {}) tile pixels [{}, {}]-[{}, {}] (20 steps)", i, j, i1, j1, i1 + S, j1 + S);
         for (int step = 0; step < 20; step++) {
             float sigma  = sched.sigmas[step];
             float cnoise = EDMScheduler.trigflowPreconditionNoise(sigma);
@@ -284,7 +284,7 @@ public final class WorldPipeline implements AutoCloseable {
         }
 
         String chunkList = wis.stream().map(w -> "(" + w[1] + "," + w[2] + ")").collect(Collectors.joining(", "));
-        LOG.info("Base model called for {} chunks: {}", batch, chunkList);
+        LOG.debug("Base model called for {} chunks: {}", batch, chunkList);
 
         float[] noiseLabels = new float[batch];
         for (int b = 0; b < batch; b++) noiseLabels[b] = t;
@@ -408,7 +408,7 @@ public final class WorldPipeline implements AutoCloseable {
         for (int k = 0; k < S * S; k++) modelIn[k] = xT[k] / SIGMA_DATA;
         System.arraycopy(upsampled, 0, modelIn, S * S, 4 * S * S);
 
-        LOG.info("Decoder model called for chunk ({}, {}) tile pixels [{}, {}]-[{}, {}]", wi[1], wi[2], i1, j1, i1 + S, j1 + S);
+        LOG.debug("Decoder model called for chunk ({}, {}) tile pixels [{}, {}]-[{}, {}]", wi[1], wi[2], i1, j1, i1 + S, j1 + S);
         float[] rawPred = decoderModel.runModel(modelIn, new long[]{1, 5, S, S}, new float[]{t}, null, null);
 
         // sample = cos(t)*xT - sin(t)*sigma_data*(-rawPred); then / sigma_data
@@ -430,6 +430,11 @@ public final class WorldPipeline implements AutoCloseable {
     /** Returns the current world seed. */
     public long getSeed() {
         return seed;
+    }
+
+    /** Returns the total count of newly computed tensor windows since startup. */
+    public long getTotalComputedWindowCount() {
+        return tileStore.getTotalComputedWindowCount();
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.github.xandergos.terraindiffusionmc.world;
 
+import com.github.xandergos.terraindiffusionmc.config.TerrainDiffusionConfig;
 import com.github.xandergos.terraindiffusionmc.pipeline.LocalTerrainProvider;
 import com.github.xandergos.terraindiffusionmc.pipeline.LocalTerrainProvider.HeightmapData;
 import com.mojang.datafixers.util.Pair;
@@ -29,9 +30,6 @@ import java.util.stream.Stream;
 import static java.util.Map.entry;
 
 public class TerrainDiffusionBiomeSource extends BiomeSource {
-    private static final int TILE_SHIFT = 8; // 256 blocks
-    private static final int TILE_SIZE = 1 << TILE_SHIFT;
-
     private static final RegistryKey<Biome> FOREST_SPARSE = RegistryKey.of(RegistryKeys.BIOME, Identifier.of("terrain-diffusion-mc", "forest_sparse"));
     private static final RegistryKey<Biome> TAIGA_SPARSE = RegistryKey.of(RegistryKeys.BIOME, Identifier.of("terrain-diffusion-mc", "taiga_sparse"));
     private static final RegistryKey<Biome> SNOWY_TAIGA_SPARSE = RegistryKey.of(RegistryKeys.BIOME, Identifier.of("terrain-diffusion-mc", "snowy_taiga_sparse"));
@@ -99,13 +97,16 @@ public class TerrainDiffusionBiomeSource extends BiomeSource {
         int blockX = BiomeCoords.toBlock(x);
         int blockZ = BiomeCoords.toBlock(z);
 
-        int tileX = blockX >> TILE_SHIFT;
-        int tileZ = blockZ >> TILE_SHIFT;
+        int tileSize = TerrainDiffusionConfig.tileSize();
+        int tileShift = Integer.numberOfTrailingZeros(tileSize);
 
-        int blockStartX = tileX << TILE_SHIFT;
-        int blockStartZ = tileZ << TILE_SHIFT;
-        int blockEndX = blockStartX + TILE_SIZE;
-        int blockEndZ = blockStartZ + TILE_SIZE;
+        int tileX = blockX >> tileShift;
+        int tileZ = blockZ >> tileShift;
+
+        int blockStartX = tileX << tileShift;
+        int blockStartZ = tileZ << tileShift;
+        int blockEndX = blockStartX + tileSize;
+        int blockEndZ = blockStartZ + tileSize;
 
         HeightmapData data = LocalTerrainProvider.getInstance().fetchHeightmap(blockStartZ, blockStartX, blockEndZ, blockEndX);
         if (data != null && data.biomeIds != null) {

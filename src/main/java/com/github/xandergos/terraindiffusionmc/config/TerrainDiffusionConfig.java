@@ -4,10 +4,8 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Properties;
 
 public final class TerrainDiffusionConfig {
@@ -18,6 +16,7 @@ public final class TerrainDiffusionConfig {
     private static final boolean DEFAULT_OFFLOAD_MODELS = true;
     private static final boolean DEFAULT_VALIDATE_MODEL = true;
     private static final int DEFAULT_EXPLORER_PORT = 19801;
+    private static final int DEFAULT_TILE_SIZE = 256;
 
     static {
         loadDefaults();
@@ -50,6 +49,16 @@ public final class TerrainDiffusionConfig {
         return readBoolean("validate_model", DEFAULT_VALIDATE_MODEL);
     }
 
+    /** Region side length in blocks. Must be a positive power of 2 (128, 256, 512, ...). */
+    public static int tileSize() {
+        int configuredTileSize = readInt("tile_size", DEFAULT_TILE_SIZE);
+        if (configuredTileSize <= 0 || !isPowerOfTwo(configuredTileSize)) {
+            System.err.println("Invalid tile_size: " + configuredTileSize + ", using default " + DEFAULT_TILE_SIZE);
+            return DEFAULT_TILE_SIZE;
+        }
+        return configuredTileSize;
+    }
+
     private static void loadDefaults() {
         boolean loadedFromResource = false;
         try (InputStream in = TerrainDiffusionConfig.class.getResourceAsStream(RESOURCE_PATH)) {
@@ -64,6 +73,7 @@ public final class TerrainDiffusionConfig {
         if (!loadedFromResource) {
             PROPERTIES.setProperty("inference.device", DEFAULT_INFERENCE_DEVICE);
             PROPERTIES.setProperty("validate_model", String.valueOf(DEFAULT_VALIDATE_MODEL));
+            PROPERTIES.setProperty("tile_size", String.valueOf(DEFAULT_TILE_SIZE));
         }
     }
 
@@ -99,11 +109,14 @@ public final class TerrainDiffusionConfig {
     }
 
     private static void writeConfig(Path configPath) {
-        try (OutputStream out = Files.newOutputStream(configPath,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            PROPERTIES.store(out, "Terrain Diffusion MC configuration");
+        try (InputStream defaultConfigInputStream = TerrainDiffusionConfig.class.getResourceAsStream(RESOURCE_PATH)) {
+            if (defaultConfigInputStream != null) {
+                Files.copy(defaultConfigInputStream, configPath);
+                return;
+            }
+            System.err.println("Default config resource not found: " + RESOURCE_PATH);
         } catch (IOException e) {
-            System.err.println("Failed to write config file: " + e.getMessage());
+            System.err.println("Failed to copy default config resource: " + e.getMessage());
         }
     }
 
@@ -121,6 +134,10 @@ public final class TerrainDiffusionConfig {
             System.err.println("Invalid int for " + key + ": " + value + ", using default " + defaultValue);
             return defaultValue;
         }
+    }
+
+    private static boolean isPowerOfTwo(int value) {
+        return (value & (value - 1)) == 0;
     }
 
 }
