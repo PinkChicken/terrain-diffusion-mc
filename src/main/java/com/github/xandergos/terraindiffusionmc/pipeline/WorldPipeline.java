@@ -136,6 +136,7 @@ public final class WorldPipeline implements AutoCloseable {
 
         // Synthetic map conditioning: channels [elev_sqrt, temp, tempStd, precip, precipStd]
         // Python call: synthetic_map_factory(j1, i1, j2, i2)
+        // Coordinates are intentionally swapped
         float[][][] syn = syntheticMapFactory.sample(j1, i1, j1 + S, i1 + S);
 
         // Modify temp channel (index 1): where <= 20, scale toward 20
