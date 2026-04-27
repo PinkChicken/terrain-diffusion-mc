@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[2,)"
+license="MIT"
+
+[[mixins]]
+config = "terrain_diffusion_mc.mixins.json"
+
+[[mods]]
+modId="terrain_diffusion_mc"
+version="1.0.0"
+displayName="Terrain Diffusion MC"
+description='''
+Diffusion-model terrain generation for Minecraft.
+'''
+
+[[dependencies.terrain_diffusion_mc]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.77,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.terrain_diffusion_mc]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,)"
+    ordering="NONE"
+    side="BOTH"

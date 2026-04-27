@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "refmap": "terrain_diffusion_mc.refmap.json",
+  "package": "com.github.xandergos.terraindiffusionmc.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NoiseBasedChunkGeneratorMixin"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,147 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.78'
+    id 'maven-publish'
+}
+
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+
+def useCpu = project.hasProperty('useCpu') && project.property('useCpu').toString().toLowerCase() == 'true'
+def modelRepositorySlug = 'xandergos/terrain-diffusion-30m-onnx'
+def modelRepositoryRevision = 'ad2df557eca5645f588766101cf3bc3682455c3e'
+def generatedManifestDirectory = layout.buildDirectory.dir('generated/model-assets').get().asFile
+def generatedManifestFile = new File(generatedManifestDirectory, 'model-assets-manifest.json')
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name + (useCpu ? '-cpu' : '')
+}
+
+neoForge {
+    version = project.neoforge_version
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    if (useCpu) {
+        jarJar(implementation("com.microsoft.onnxruntime:onnxruntime:1.20.0"))
+    } else {
+        jarJar(implementation("com.microsoft.onnxruntime:onnxruntime_gpu:1.20.0"))
+    }
+}
+
+processResources {
+    dependsOn 'generateModelAssetManifest'
+
+    def replaceProperties = [
+        minecraft_version: project.minecraft_version,
+        neoforge_version : project.neoforge_version,
+        mod_version      : project.version,
+        mod_id           : project.mod_id
+    ]
+    inputs.properties replaceProperties
+
+    from(generatedManifestFile) {
+        into ''
+    }
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand replaceProperties
+    }
+}
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+}
+
+jar {
+    from('LICENSE') {
+        rename { "${it}_${project.archivesBaseName}" }
+    }
+}
+
+publishing {
+    publications {
+        create('mavenJava', MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+}
+
+tasks.register('generateModelAssetManifest') {
+    inputs.property('modelRepositorySlug', modelRepositorySlug)
+    inputs.property('modelRepositoryRevision', modelRepositoryRevision)
+    outputs.file(generatedManifestFile)
+
+    doLast {
+        generatedManifestDirectory.mkdirs()
+
+        String apiUrl = "https://huggingface.co/api/models/${modelRepositorySlug}/revision/${modelRepositoryRevision}?blobs=true"
+        Map modelInfo = new JsonSlurper().parseText(new URL(apiUrl).getText('UTF-8')) as Map
+        List siblings = modelInfo.siblings as List
+
+        List<String> requiredFiles = [
+            'base_model.onnx',
+            'coarse_model.onnx',
+            'decoder_model.onnx',
+            'pipeline_data.json',
+            'world_pipeline_config.json'
+        ]
+
+        Map<String, Object> assetEntries = [:]
+        for (String requiredFileName : requiredFiles) {
+            Map siblingEntry = siblings.find { it.rfilename == requiredFileName } as Map
+            if (siblingEntry == null) {
+                throw new GradleException("Required model asset missing from HF commit ${modelRepositoryRevision}: ${requiredFileName}")
+            }
+            String resolveUrl = "https://huggingface.co/${modelRepositorySlug}/resolve/${modelRepositoryRevision}/${requiredFileName}?download=true"
+            long expectedSizeBytes = ((Number) siblingEntry.size).longValue()
+            String expectedSha256
+            if (siblingEntry.lfs instanceof Map && siblingEntry.lfs.sha256 != null) {
+                expectedSha256 = siblingEntry.lfs.sha256 as String
+            } else {
+                byte[] remoteFileBytes = new URL(resolveUrl).bytes
+                expectedSha256 = sha256Hex(remoteFileBytes)
+            }
+            assetEntries[requiredFileName] = [
+                sha256    : expectedSha256,
+                sizeBytes : expectedSizeBytes,
+                url       : resolveUrl
+            ]
+        }
+
+        Map<String, Object> manifestPayload = [
+            repositorySlug: modelRepositorySlug,
+            revision      : modelRepositoryRevision,
+            assets        : assetEntries
+        ]
+        generatedManifestFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(manifestPayload))
+    }
+}
+
+String sha256Hex(byte[] fileBytes) {
+    MessageDigest messageDigest = MessageDigest.getInstance('SHA-256')
+    byte[] digestBytes = messageDigest.digest(fileBytes)
+    StringBuilder hexBuilder = new StringBuilder(digestBytes.length * 2)
+    for (byte digestByte : digestBytes) {
+        hexBuilder.append(String.format('%02x', digestByte))
+    }
+    return hexBuilder.toString()
+}

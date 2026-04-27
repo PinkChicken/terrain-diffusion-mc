@@ -1,0 +1,15 @@
+# Build and IDE files
+bin/
+build/
+.gradle/
+.idea/
+*.iml
+.vscode/
+
+# Minecraft Run directory (saves, logs, configs)
+run/
+logs/
+debug.log
+
+# Sensitive info
+local.properties

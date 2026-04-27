@@ -1,0 +1,7 @@
+{
+  "generator.terrain_diffusion_mc.terrain_diffusion": "Terrain Diffusion",
+
+  "createWorld.customize.terrain_diffusion.title": "Terrain Diffusion Settings",
+  "createWorld.customize.terrain_diffusion.scale": "World Scale",
+  "createWorld.customize.terrain_diffusion.desc":  "Higher scale = more detail, smaller geographic area"
+}
